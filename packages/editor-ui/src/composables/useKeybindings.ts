@@ -1,7 +1,7 @@
 import { useActiveElement, useEventListener } from '@vueuse/core';
-import { useDeviceSupport } from 'n8n-design-system';
+import { useDeviceSupport } from '@n8n/composables/useDeviceSupport';
 import type { MaybeRef, Ref } from 'vue';
-import { computed, unref } from 'vue';
+import { computed, ref, unref } from 'vue';
 
 type KeyMap = Record<string, (event: KeyboardEvent) => void>;
 
@@ -102,8 +102,8 @@ export const useKeybindings = (
 	function toShortcutString(event: KeyboardEvent) {
 		const { shiftKey, altKey } = event;
 		const ctrlKey = isCtrlKeyPressed(event);
-		const keys = [event.key];
-		const codes = [keyboardEventCodeToKey(event.code)];
+		const keys = 'key' in event ? [event.key] : [];
+		const codes = 'code' in event ? [keyboardEventCodeToKey(event.code)] : [];
 		const modifiers: string[] = [];
 
 		if (shiftKey) {
@@ -142,5 +142,17 @@ export const useKeybindings = (
 		}
 	}
 
-	useEventListener(document, 'keydown', onKeyDown);
+	const unregister = ref<ReturnType<typeof useEventListener> | undefined>();
+
+	function registerKeybindings() {
+		unregister.value = useEventListener(document, 'keydown', onKeyDown);
+	}
+
+	function unregisterKeybindings() {
+		unregister.value?.();
+	}
+
+	registerKeybindings();
+	useEventListener(window, 'blur', unregisterKeybindings);
+	useEventListener(window, 'focus', registerKeybindings);
 };
